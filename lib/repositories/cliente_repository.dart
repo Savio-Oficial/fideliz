@@ -3,11 +3,29 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/cliente_model.dart';
+import '../services/supabase_service.dart';
 
 class ClienteRepository {
   static const String _storageKey = 'clientes_data';
 
   static Future<List<Cliente>> carregar() async {
+    if (SupabaseService.isConfigured) {
+      try {
+        final response = await SupabaseService.client
+            .from('clientes')
+            .select();
+
+        if (response is List) {
+          return response
+              .map((item) => Cliente.fromJson(Map<String, dynamic>.from(item)))
+              .toList();
+        }
+      } catch (_) {
+        // Fallback para o armazenamento local quando o schema real ainda não
+        // estiver sincronizado com a estrutura do MVP.
+      }
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final dados = prefs.getString(_storageKey);
 
@@ -26,6 +44,28 @@ class ClienteRepository {
   }
 
   static Future<void> salvar(List<Cliente> clientes) async {
+    if (SupabaseService.isConfigured) {
+      try {
+        final payload = clientes.map((cliente) {
+          final row = cliente.toJson();
+          final userId = SupabaseService.currentUserId;
+          if (userId != null && !row.containsKey('profile_id')) {
+            row['profile_id'] = userId;
+          }
+          return row;
+        }).toList();
+
+        await SupabaseService.client.from('clientes').upsert(
+          payload,
+          onConflict: 'id',
+        );
+        return;
+      } catch (_) {
+        // Fallback para persistência local enquanto a base real ainda não está
+        // no mesmo formato do modelo atual do app.
+      }
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final data = clientes.map((cliente) => cliente.toJson()).toList();
     await prefs.setString(_storageKey, json.encode(data));
