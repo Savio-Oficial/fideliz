@@ -48,8 +48,15 @@ flutter run -d web-server --web-port 8080
 Quando a migração para o backend real for ativada, configure:
 
 ```bash
-SUPABASE_URL=your_project_url
-SUPABASE_ANON_KEY=your_anon_key
+flutter run \
+  --dart-define=SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Também é possível criar o projeto no Supabase, importar o schema em `supabase/schema.sql` e, em seguida, rodar:
+
+```bash
+supabase db push
 ```
 
 ## Estrutura principal
