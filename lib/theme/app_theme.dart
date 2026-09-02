@@ -5,8 +5,9 @@ class AppTheme {
   static const Color primarySoft = Color(0xFFEAE7FF);
   static const Color accent = Color(0xFF22B07D);
   static const Color neutral = Color(0xFF101828);
-  static const Color background = Color(0xFFF6F7FB);
+  static const Color background = Color(0xFFF4F6FB);
   static const Color surface = Color(0xFFFFFFFF);
+  static const Color surfaceAlt = Color(0xFFF9F8FF);
   static const Color muted = Color(0xFF667085);
 
   static ThemeData lightTheme() {
@@ -29,7 +30,8 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shadowColor: primary.withValues(alpha: 0.08),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         color: surface,
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -40,19 +42,19 @@ class AppTheme {
           vertical: 18,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: Color(0xFFE4E7EC)),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: Color(0xFFE4E7EC)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: primary, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: Colors.redAccent),
         ),
       ),
@@ -61,10 +63,13 @@ class AppTheme {
           backgroundColor: primary,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
           ),
           padding: const EdgeInsets.symmetric(vertical: 16),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          elevation: 0,
+        ).copyWith(
+          overlayColor: WidgetStatePropertyAll(primary.withValues(alpha: 0.12)),
         ),
       ),
       textTheme: const TextTheme(

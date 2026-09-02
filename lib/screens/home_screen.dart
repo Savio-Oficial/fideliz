@@ -8,6 +8,7 @@ import '../repositories/movimentacao_repository.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import 'cadastro_cliente_screen.dart';
+import 'campanhas_screen.dart';
 import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -25,6 +26,8 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Movimentacao> _historico = [];
   String _filtroHistorico = 'todos';
   String _periodoHistorico = 'all';
+  String _filtroCategoria = 'todos';
+  String _abaDashboard = 'resumo';
 
   @override
   void initState() {
@@ -56,15 +59,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<Cliente> get _clientesFiltrados {
     final termo = _buscaController.text.trim().toLowerCase();
-    final clientes = termo.isEmpty
-        ? List<Cliente>.from(_clientes)
-        : _clientes.where((cliente) {
-            final nome = cliente.nome.toLowerCase();
-            return nome.contains(termo);
-          }).toList();
+    Iterable<Cliente> clientes = _clientes;
 
-    clientes.sort((a, b) => b.pontos.compareTo(a.pontos));
-    return clientes;
+    if (_filtroCategoria != 'todos') {
+      clientes = clientes.where((cliente) => cliente.categoria == _filtroCategoria);
+    }
+
+    if (termo.isNotEmpty) {
+      clientes = clientes.where((cliente) {
+        final nome = cliente.nome.toLowerCase();
+        return nome.contains(termo);
+      });
+    }
+
+    final lista = clientes.toList();
+    lista.sort((a, b) => b.pontos.compareTo(a.pontos));
+    return lista;
   }
 
   List<Movimentacao> get _historicoFiltrado {
@@ -424,6 +434,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _abrirCampanhas() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CampanhasScreen()),
+    );
+  }
+
   Future<void> _logout() async {
     await AuthService.logout();
     if (!mounted) return;
@@ -442,18 +459,45 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text('Olá, ${widget.usuario.nomeExibicao}'),
+        title: Text(
+          'Olá, ${widget.usuario.nomeExibicao}',
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            color: AppTheme.neutral,
+          ),
+        ),
         actions: [
-          IconButton(
-            onPressed: _logout,
-            tooltip: 'Sair',
-            icon: const Icon(Icons.logout_rounded),
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: AppTheme.primarySoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              onPressed: _abrirCampanhas,
+              tooltip: 'Campanhas',
+              icon: const Icon(Icons.campaign_rounded, color: AppTheme.primary),
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: AppTheme.primarySoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              onPressed: _logout,
+              tooltip: 'Sair',
+              icon: const Icon(Icons.logout_rounded, color: AppTheme.primary),
+            ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _abrirCadastro(),
-        icon: const Icon(Icons.add),
+        backgroundColor: AppTheme.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add_rounded),
         label: const Text('Novo cliente'),
       ),
       body: SafeArea(
@@ -471,7 +515,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primary.withValues(alpha: 0.18),
+                      blurRadius: 18,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -490,7 +541,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            '${_clientes.length} clientes ativos',
+                            _abaDashboard == 'resumo'
+                                ? '${_clientes.length} clientes ativos'
+                                : _abaDashboard == 'clientes'
+                                    ? '${clientesFiltrados.length} clientes filtrados'
+                                    : '${_historicoFiltrado.length} movimentações',
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.w800,
@@ -499,9 +554,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            _melhorCliente == null
-                                ? 'Ainda não há vencedor'
-                                : 'Líder: ${_melhorCliente!.nome}',
+                            _abaDashboard == 'resumo'
+                                ? (_melhorCliente == null
+                                    ? 'Ainda não há vencedor'
+                                    : 'Líder: ${_melhorCliente!.nome}')
+                                : _abaDashboard == 'clientes'
+                                    ? 'Visão por categoria e busca ativa'
+                                    : 'Fluxo recente de compras, bônus e resgates',
                             style: const TextStyle(
                               fontSize: 13,
                               color: Colors.white70,
@@ -523,6 +582,88 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: AppTheme.primary.withValues(alpha: 0.08)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _QuickActionButton(
+                        icon: Icons.person_add_alt_1_rounded,
+                        label: 'Novo cliente',
+                        onTap: () => _abrirCadastro(),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _QuickActionButton(
+                        icon: Icons.shopping_bag_outlined,
+                        label: 'Compra',
+                        onTap: _registrarCompra,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _QuickActionButton(
+                        icon: Icons.campaign_rounded,
+                        label: 'Campanhas',
+                        onTap: _abrirCampanhas,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.primary.withValues(alpha: 0.08)),
+                ),
+                child: SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'resumo', label: Text('Resumo')),
+                    ButtonSegment(value: 'clientes', label: Text('Clientes')),
+                    ButtonSegment(value: 'historico', label: Text('Histórico')),
+                  ],
+                  selected: {_abaDashboard},
+                  onSelectionChanged: (selection) {
+                    setState(() => _abaDashboard = selection.first);
+                  },
+                  showSelectedIcon: false,
+                  style: ButtonStyle(
+                    backgroundColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return AppTheme.primary;
+                      }
+                      return Colors.transparent;
+                    }),
+                    foregroundColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return Colors.white;
+                      }
+                      return AppTheme.neutral;
+                    }),
+                    textStyle: const WidgetStatePropertyAll(
+                      TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    padding: const WidgetStatePropertyAll(
+                      EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    shape: WidgetStatePropertyAll(
+                      RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -595,6 +736,56 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Campanhas em destaque',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.neutral,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _abrirCampanhas,
+                    child: const Text(
+                      'Ver todas',
+                      style: TextStyle(
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: AppTheme.primary.withValues(alpha: 0.06)),
+                ),
+                child: Column(
+                  children: const [
+                    _CampaignHighlight(
+                      title: 'VIP Week',
+                      subtitle: '1,5x em compras premium',
+                      badge: 'Ativa',
+                    ),
+                    SizedBox(height: 10),
+                    _CampaignHighlight(
+                      title: 'Retenção Ouro',
+                      subtitle: 'Bonus extra para clientes frequentes',
+                      badge: 'Ativa',
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
               Row(
@@ -698,7 +889,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: AppTheme.primary.withValues(alpha: 0.06)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -751,6 +950,33 @@ class _HomeScreenState extends State<HomeScreen> {
                   hintText: 'Buscar cliente',
                   prefixIcon: Icon(Icons.search),
                 ),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilterChip(
+                    label: const Text('Todos'),
+                    selected: _filtroCategoria == 'todos',
+                    onSelected: (_) => setState(() => _filtroCategoria = 'todos'),
+                  ),
+                  FilterChip(
+                    label: const Text('Comum'),
+                    selected: _filtroCategoria == 'comum',
+                    onSelected: (_) => setState(() => _filtroCategoria = 'comum'),
+                  ),
+                  FilterChip(
+                    label: const Text('Ouro'),
+                    selected: _filtroCategoria == 'ouro',
+                    onSelected: (_) => setState(() => _filtroCategoria = 'ouro'),
+                  ),
+                  FilterChip(
+                    label: const Text('Premium'),
+                    selected: _filtroCategoria == 'premium',
+                    onSelected: (_) => setState(() => _filtroCategoria = 'premium'),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
               if (_historico.isNotEmpty) ...[
@@ -1043,6 +1269,52 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+class _QuickActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _QuickActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppTheme.primarySoft,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: AppTheme.primary, size: 18),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.neutral,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MetricCard extends StatelessWidget {
   final String title;
   final String value;
@@ -1064,7 +1336,15 @@ class _MetricCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.06)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1114,6 +1394,83 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
+class _CampaignHighlight extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String badge;
+
+  const _CampaignHighlight({
+    required this.title,
+    required this.subtitle,
+    required this.badge,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceAlt,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.primarySoft,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.local_fire_department_rounded,
+              color: AppTheme.primary,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.neutral,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppTheme.accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              badge,
+              style: const TextStyle(
+                color: AppTheme.accent,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MiniReportCard extends StatelessWidget {
   final String title;
   final String value;
@@ -1131,7 +1488,8 @@ class _MiniReportCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

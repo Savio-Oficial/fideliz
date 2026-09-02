@@ -11,9 +11,13 @@ class MovimentacaoRepository {
   static Future<List<Movimentacao>> carregar() async {
     if (SupabaseService.isConfigured) {
       try {
-        final response = await SupabaseService.client
-            .from('movimentacoes')
-            .select();
+        final userId = SupabaseService.currentUserId;
+        var query = SupabaseService.client.from('movimentacoes').select();
+        if (userId != null) {
+          query = query.eq('profile_id', userId);
+        }
+
+        final response = await query;
 
         if (response is List) {
           return response
@@ -46,12 +50,24 @@ class MovimentacaoRepository {
   static Future<void> salvar(List<Movimentacao> movimentacoes) async {
     if (SupabaseService.isConfigured) {
       try {
+        final userId = SupabaseService.currentUserId;
         final payload = movimentacoes.map((mov) {
-          final row = mov.toJson();
-          final userId = SupabaseService.currentUserId;
-          if (userId != null && !row.containsKey('profile_id')) {
-            row['profile_id'] = userId;
-          }
+          final row = <String, dynamic>{
+            'id': mov.id,
+            'cliente_id': mov.clienteId,
+            'tipo': mov.tipo,
+            'pontos': mov.pontos,
+            'valor': mov.valor,
+            'descricao': mov.descricao,
+            'created_at': mov.data.toUtc().toIso8601String(),
+            'metadata': {
+              'cliente_nome': mov.clienteNome,
+              'categoria_cliente': mov.categoriaCliente,
+              'valor': mov.valor,
+              'cliente_id': mov.clienteId,
+            },
+            if (userId != null) 'profile_id': userId,
+          };
           return row;
         }).toList();
 

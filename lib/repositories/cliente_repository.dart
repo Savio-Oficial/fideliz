@@ -11,9 +11,13 @@ class ClienteRepository {
   static Future<List<Cliente>> carregar() async {
     if (SupabaseService.isConfigured) {
       try {
-        final response = await SupabaseService.client
-            .from('clientes')
-            .select();
+        final userId = SupabaseService.currentUserId;
+        var query = SupabaseService.client.from('clientes').select();
+        if (userId != null) {
+          query = query.eq('profile_id', userId);
+        }
+
+        final response = await query;
 
         if (response is List) {
           return response
@@ -46,12 +50,15 @@ class ClienteRepository {
   static Future<void> salvar(List<Cliente> clientes) async {
     if (SupabaseService.isConfigured) {
       try {
+        final userId = SupabaseService.currentUserId;
         final payload = clientes.map((cliente) {
-          final row = cliente.toJson();
-          final userId = SupabaseService.currentUserId;
-          if (userId != null && !row.containsKey('profile_id')) {
-            row['profile_id'] = userId;
-          }
+          final row = <String, dynamic>{
+            'id': cliente.id,
+            'nome': cliente.nome,
+            'categoria': cliente.categoria,
+            'pontos': cliente.pontos,
+            if (userId != null) 'profile_id': userId,
+          };
           return row;
         }).toList();
 

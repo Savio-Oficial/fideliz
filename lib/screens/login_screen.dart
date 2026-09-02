@@ -13,15 +13,35 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nomeController = TextEditingController();
   final _emailController = TextEditingController(text: 'admin@fideliz.com');
   final _senhaController = TextEditingController(text: '123456');
   bool _carregando = false;
+  bool _modoRegistro = false;
 
   @override
   void dispose() {
+    _nomeController.dispose();
     _emailController.dispose();
     _senhaController.dispose();
     super.dispose();
+  }
+
+  String? _validarNome(String? value) {
+    final nome = (value ?? '').trim();
+    if (!_modoRegistro) {
+      return null;
+    }
+
+    if (nome.isEmpty) {
+      return 'Informe seu nome.';
+    }
+
+    if (nome.length < 2) {
+      return 'O nome deve ter pelo menos 2 caracteres.';
+    }
+
+    return null;
   }
 
   String? _validarEmail(String? value) {
@@ -31,7 +51,9 @@ class _LoginScreenState extends State<LoginScreen> {
       return 'Informe seu e-mail.';
     }
 
-    final regex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    final regex = RegExp(
+      r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$",
+    );
     if (!regex.hasMatch(email)) {
       return 'Use um e-mail válido.';
     }
@@ -89,6 +111,80 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => HomeScreen(usuario: usuario)),
+    );
+  }
+
+  Future<void> _registrar() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _carregando = true;
+    });
+
+    final usuario = await AuthService.registrar(
+      email: _emailController.text,
+      senha: _senhaController.text,
+      nome: _nomeController.text,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (usuario == null) {
+      setState(() {
+        _carregando = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não foi possível criar este cadastro. Verifique os dados e tente novamente.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => HomeScreen(usuario: usuario)),
+    );
+  }
+
+  Future<void> _submitFormulario() async {
+    if (_modoRegistro) {
+      await _registrar();
+      return;
+    }
+
+    await _entrar();
+  }
+
+  Future<void> _recuperarSenha() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Informe seu e-mail para recuperar a senha.')),
+      );
+      return;
+    }
+
+    final enviado = await AuthService.resetarSenha(email: email);
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          enviado
+              ? 'Se esse e-mail estiver cadastrado, você receberá instruções para redefinir a senha.'
+              : 'Não foi possível enviar a recuperação de senha. Verifique o e-mail e tente novamente.',
+        ),
+      ),
     );
   }
 
@@ -178,20 +274,92 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 18),
-                        const Text(
-                          'Acesso do gestor',
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.neutral,
-                          ),
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Acesso do gestor',
+                                style: TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppTheme.neutral,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primarySoft,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                _modoRegistro ? 'Cadastro' : 'Login',
+                                style: const TextStyle(
+                                  color: AppTheme.primary,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          'Entrar para administrar clientes e fidelidade.',
-                          style: TextStyle(fontSize: 15, color: AppTheme.muted),
+                        Text(
+                          _modoRegistro
+                              ? 'Crie sua conta e comece a gerenciar o programa.'
+                              : 'Entre para administrar clientes, pontos e campanhas.',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: AppTheme.muted,
+                          ),
                         ),
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 24),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primarySoft,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: AppTheme.primary.withValues(alpha: 0.12),
+                            ),
+                          ),
+                          child: Row(
+                            children: const [
+                              Icon(
+                                Icons.auto_awesome,
+                                color: AppTheme.primary,
+                                size: 18,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Experiência premium para gestão de fidelidade.',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: AppTheme.neutral,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                        if (_modoRegistro)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: TextFormField(
+                              controller: _nomeController,
+                              validator: _validarNome,
+                              decoration: const InputDecoration(
+                                hintText: 'Nome completo',
+                                prefixIcon: Icon(Icons.person_outline),
+                              ),
+                            ),
+                          ),
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
@@ -215,7 +383,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
-                            onPressed: _carregando ? null : _entrar,
+                            onPressed: _carregando ? null : _submitFormulario,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              elevation: 0,
+                            ),
                             icon: _carregando
                                 ? const SizedBox(
                                     width: 18,
@@ -225,8 +402,87 @@ class _LoginScreenState extends State<LoginScreen> {
                                       color: Colors.white,
                                     ),
                                   )
-                                : const Icon(Icons.login_rounded),
-                            label: Text(_carregando ? 'Entrando...' : 'Entrar'),
+                                : Icon(
+                                    _modoRegistro
+                                        ? Icons.person_add_alt_1_rounded
+                                        : Icons.login_rounded,
+                                  ),
+                            label: Text(
+                              _carregando
+                                  ? (_modoRegistro ? 'Criando conta...' : 'Entrando...')
+                                  : (_modoRegistro ? 'Criar conta' : 'Entrar'),
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (!_modoRegistro) ...[
+                          const SizedBox(height: 10),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: _carregando ? null : _recuperarSenha,
+                              child: const Text(
+                                'Esqueci minha senha',
+                                style: TextStyle(
+                                  color: AppTheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 10),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primarySoft,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _modoRegistro
+                                      ? 'Já possui uma conta?'
+                                      : 'Novo por aqui?',
+                                  style: const TextStyle(
+                                    color: AppTheme.neutral,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: _carregando
+                                    ? null
+                                    : () {
+                                        setState(() {
+                                          _modoRegistro = !_modoRegistro;
+                                          _formKey.currentState?.reset();
+                                        });
+                                      },
+                                style: TextButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 10,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: Text(
+                                  _modoRegistro ? 'Entrar' : 'Criar conta',
+                                  style: const TextStyle(
+                                    color: AppTheme.primary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
