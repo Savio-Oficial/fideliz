@@ -40,5 +40,11 @@ class SupabaseService {
     return Supabase.instance.client;
   }
 
+  static String? get currentUserId =>
+      _initialized ? Supabase.instance.client.auth.currentUser?.id : null;
+
+  static String? get currentUserEmail =>
+      _initialized ? Supabase.instance.client.auth.currentUser?.email : null;
+
   static bool get isConfigured => _initialized;
 }
